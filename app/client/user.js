@@ -29,7 +29,7 @@ function initUser(messageCallback, userlistCallback) {
             var receiveChannel = event.channel;
             console.log("channel received");
             receiveChannel.onmessage = function(event){
-                messageCallback(event.data);
+                messageCallback(event.data, peerId);
             };
             channels[peerId] = receiveChannel;
             userlistCallback(peerId);
@@ -65,7 +65,7 @@ function initUser(messageCallback, userlistCallback) {
         };
 
         commChannel.onmessage = function(message){
-            messageCallback(message.data);
+            messageCallback(message.data, peerId);
         };
 
         return commChannel;
@@ -93,38 +93,54 @@ function initUser(messageCallback, userlistCallback) {
 
     signalingChannel.onICECandidate = function (ICECandidate, sourceId) {
         console.log("receiving ICE candidate from ", sourceId);
+
+        if (!peerConnections[sourceId])
+            peerConnections[sourceId] = createPeerConnection(sourceId);
+
         peerConnections[sourceId].addIceCandidate(new RTCIceCandidate(ICECandidate));
     };
 
     signalingChannel.onOffer = function (offer, sourceId) {
         console.log('receive offer from', sourceId);
-        var peerConnection = createPeerConnection(sourceId);
-        peerConnection[sourceId] = peerConnection;
 
-        peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        peerConnection.createAnswer(function(answer){
-            peerConnection.setLocalDescription(answer);
+        if (!peerConnections[sourceId])
+            peerConnections[sourceId] = createPeerConnection(sourceId);
+
+        var pc = peerConnections[sourceId];
+        pc.setRemoteDescription(new RTCSessionDescription(offer));
+        pc.createAnswer(function(answer){
+            pc.setLocalDescription(answer);
             console.log('send answer');
             signalingChannel.sendAnswer(answer, sourceId);
         }, function (e){
             console.error(e);
         });
     };
+
+    window.channels = channels;
 }
 
 window.onload = function() {
 
-    var userlist = document.getElementById('userlist');
+    document.getElementById("send").onclick= function(){
+        var message = document.getElementById('message').value;
+        var peerId = Number(document.getElementById('userlist').value);
+        channels[peerId].send(message);
+     };
 
-    function messageCallback(message) {
-        console.log('message:', message);
+    function messageCallback(message, peerId) {
+        console.log('message:', message, peerId);
+        var p = document.createElement('p');
+        p.innerHTML = '[' + peerId + ']' + message;
+
+        document.getElementById('received').appendChild(p);
     }
 
     function userlistCallback(peerID) {
         var opt = document.createElement('option');
         opt.value = peerID;
         opt.innerHTML = peerID;
-        userlist.appendChild(opt);
+        document.getElementById('userlist').appendChild(opt);
     }
 
     initUser(messageCallback, userlistCallback);
