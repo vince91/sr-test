@@ -1,4 +1,4 @@
-function initUser(messageCallback) {
+function initUser(messageCallback, userlistCallback) {
     var RTCSessionDescription = window.RTCSessionDescription || window.mozRTCSessionDescription;
     var RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
     var RTCIceCandidate = window.RTCIceCandidate || window.mozRTCIceCandidate;
@@ -13,29 +13,29 @@ function initUser(messageCallback) {
     var channels = {};
 
     function createPeerConnection(peerId) {
-        var pc = new RTCPeerConnection(servers, {
+        var peerConnection = new RTCPeerConnection(servers, {
             optional: [{
                 DtlsSrtpKeyAgreement: true
             }]
         });
             
-        pc.onicecandidate = function (evt) {
+        peerConnection.onicecandidate = function(evt) {
             if(evt.candidate){ // empty candidate (wirth evt.candidate === null) are often generated
                 signalingChannel.sendICECandidate(evt.candidate, peerId);
             }
         };
 
-        pc.ondatachannel = function(event) {
+        peerConnection.ondatachannel = function(event) {
             var receiveChannel = event.channel;
             console.log("channel received");
             receiveChannel.onmessage = function(event){
                 messageCallback(event.data);
             };
             channels[peerId] = receiveChannel;
+            userlistCallback(peerId);
         };
 
-
-        return pc;
+        return peerConnection;
     }
 
     function createDataChannel(peerConnection, peerId) {
@@ -81,6 +81,7 @@ function initUser(messageCallback) {
                 var peerConnection = createPeerConnection(peerID);
                 channels[peerID] = createDataChannel(peerConnection, peerID);
                 peerConnections[peerID] = peerConnection;
+                userlistCallback(peerID);
             }
         }
     }
@@ -112,7 +113,19 @@ function initUser(messageCallback) {
 }
 
 window.onload = function() {
-    initUser(function(message){
-        console.log('message', message);
-    });
+
+    var userlist = document.getElementById('userlist');
+
+    function messageCallback(message) {
+        console.log('message:', message);
+    }
+
+    function userlistCallback(peerID) {
+        var opt = document.createElement('option');
+        opt.value = peerID;
+        opt.innerHTML = peerID;
+        userlist.appendChild(opt);
+    }
+
+    initUser(messageCallback, userlistCallback);
 }
