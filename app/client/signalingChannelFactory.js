@@ -12,7 +12,7 @@ function SignalingChannel(id){
     }
 
     function _onConnectionEstablished(){
-        _sendMessage('init', id);
+        _sendMessage('init');
     }
 
     function _onClose(){
@@ -35,6 +35,9 @@ function SignalingChannel(id){
                 break;
             case "answer":
                 self.onAnswer(objMessage.answer, objMessage.source);
+                break;
+            case "init":
+                self.onInit(objMessage.currentID, objMessage.connectedIDs);
                 break;
             default:
                 throw new Error("invalid message type");
@@ -81,10 +84,17 @@ function SignalingChannel(id){
     this.onICECandidate = function(ICECandidate, source){
         console.log("ICECandidate from peer:", source, ':', ICECandidate);
     };
+
+    //default handler, should be overriden 
+    this.onInit = function(currentID, connectedIDs) {
+        console.log(currentID, connectedIDs);
+        self.currentID = currentID;
+        self.connectedIDs. connectedIDs;
+    }
 }
 
-window.createSignalingChannel = function(url, id){
-    var signalingChannel = new SignalingChannel(id);
+window.createSignalingChannel = function(url){
+    var signalingChannel = new SignalingChannel();
     signalingChannel.connectToTracker(url);
     return signalingChannel;
 };

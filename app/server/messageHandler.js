@@ -1,4 +1,6 @@
-var  connectedPeers = {};
+var connectedPeers = {};
+var connectedIDs = [];
+
 function onMessage(ws, message){
     var type = message.type;
     switch (type) {
@@ -19,10 +21,25 @@ function onMessage(ws, message){
     }
 }
 
-function onInit(ws, id){
-    console.log("init from peer:", id);
+function onInit(ws){
+    var id;
+    if (connectedIDs.length === 0)
+        id = 1;
+    else
+        id = connectedIDs[connectedIDs.length - 1] + 1;
+
     ws.id = id;
     connectedPeers[id] = ws;
+    connectedIDs.push(id);
+
+    console.log("init from peer:" + id);
+    console.log("connected ids: ", connectedIDs);
+
+    connectedPeers[id].send(JSON.stringify({
+        type: 'init',
+        currentID: id,
+        connectedIDs: connectedIDs
+    }));
 }
 
 function onOffer(offer, destination, source){
