@@ -96,8 +96,10 @@ function initUser(messageCallback) {
     };
 
     signalingChannel.onOffer = function (offer, sourceId) {
-        console.log('receive offer');
+        console.log('receive offer from', sourceId);
         var peerConnection = createPeerConnection(sourceId);
+        peerConnection[sourceId] = peerConnection;
+
         peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
         peerConnection.createAnswer(function(answer){
             peerConnection.setLocalDescription(answer);
@@ -106,8 +108,6 @@ function initUser(messageCallback) {
         }, function (e){
             console.error(e);
         });
-
-        peerConnection[sourceId] = peerConnection;
     };
 }
 
