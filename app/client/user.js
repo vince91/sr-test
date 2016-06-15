@@ -3,9 +3,9 @@ function initUser(messageCallback, userlistCallback) {
     var RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
     var RTCIceCandidate = window.RTCIceCandidate || window.mozRTCIceCandidate;
     
-    var wsUri = "ws://localhost:8090/";
+    var wsUri = 'ws://localhost:8090/';
     var signalingChannel = createSignalingChannel(wsUri);
-    var servers = { iceServers: [{urls: "stun:stun.1.google.com:19302"}] };
+    var servers = { iceServers: [{urls: 'stun:stun.1.google.com:19302'}] };
     var currentID;
     var connectedIDs;
 
@@ -13,22 +13,23 @@ function initUser(messageCallback, userlistCallback) {
     var channels = {};
 
     function createPeerConnection(peerId) {
+
         var peerConnection = new RTCPeerConnection(servers, {
             optional: [{
                 DtlsSrtpKeyAgreement: true
             }]
         });
             
-        peerConnection.onicecandidate = function(evt) {
-            if(evt.candidate){ // empty candidate (wirth evt.candidate === null) are often generated
-                signalingChannel.sendICECandidate(evt.candidate, peerId);
+        peerConnection.onicecandidate = function(event) {
+            if(event.candidate){ // empty candidate (wirth event.candidate === null) are often generated
+                signalingChannel.sendICECandidate(event.candidate, peerId);
             }
         };
 
         peerConnection.ondatachannel = function(event) {
             var receiveChannel = event.channel;
-            console.log("channel received");
-            receiveChannel.onmessage = function(event){
+            console.log('channel received from', peerId);
+            receiveChannel.onmessage = function(event) {
                 messageCallback(event.data, peerId);
             };
             channels[peerId] = receiveChannel;
@@ -46,22 +47,22 @@ function initUser(messageCallback, userlistCallback) {
 
         peerConnection.createOffer(function(offer){
             peerConnection.setLocalDescription(offer);
-            console.log('send offer');
+            console.log('send offer to', peerId);
             signalingChannel.sendOffer(offer, peerId);
         }, function (e){
             console.error(e);
         });
         
-        commChannel.onclose = function(evt) {
-            console.log("dataChannel closed");
+        commChannel.onclose = function(event) {
+            console.log('dataChannel closed with', peerId);
         };
 
-        commChannel.onerror = function(evt) {
-            console.error("dataChannel error");
+        commChannel.onerror = function(event) {
+            console.error('dataChannel error with', peerId);
         };
 
-        commChannel.onopen = function(){
-            console.log("dataChannel opened");
+        commChannel.onopen = function() {
+            console.log('dataChannel opened with', peerId);
         };
 
         commChannel.onmessage = function(message){
@@ -72,8 +73,8 @@ function initUser(messageCallback, userlistCallback) {
     }
 
     signalingChannel.onInit = function(currentID, connectedIDs) {
-        console.log("connected to tracker")
-        console.log("id:", currentID, "connected peers:", connectedIDs);
+        console.log('connected to tracker')
+        console.log('my id:', currentID, 'connected peers:', connectedIDs);
 
         for (var i = 0; i < connectedIDs.length; ++i) {
             var peerID = connectedIDs[i];
@@ -86,32 +87,32 @@ function initUser(messageCallback, userlistCallback) {
         }
     }
 
-    signalingChannel.onAnswer = function (answer, sourceId) {
-        console.log('receive answer from ', sourceId);
-        peerConnections[sourceId].setRemoteDescription(new RTCSessionDescription(answer));
+    signalingChannel.onAnswer = function (answer, peerId) {
+        console.log('receive answer from', peerId);
+        peerConnections[peerId].setRemoteDescription(new RTCSessionDescription(answer));
     };
 
-    signalingChannel.onICECandidate = function (ICECandidate, sourceId) {
-        console.log("receiving ICE candidate from ", sourceId);
+    signalingChannel.onICECandidate = function (ICECandidate, peerId) {
+        console.log('receiving ICE candidate from', peerId);
 
-        if (!peerConnections[sourceId])
-            peerConnections[sourceId] = createPeerConnection(sourceId);
+        if (!peerConnections[peerId])
+            peerConnections[peerId] = createPeerConnection(peerId);
 
-        peerConnections[sourceId].addIceCandidate(new RTCIceCandidate(ICECandidate));
+        peerConnections[peerId].addIceCandidate(new RTCIceCandidate(ICECandidate));
     };
 
-    signalingChannel.onOffer = function (offer, sourceId) {
-        console.log('receive offer from', sourceId);
+    signalingChannel.onOffer = function (offer, peerId) {
+        console.log('receive offer from', peerId);
 
-        if (!peerConnections[sourceId])
-            peerConnections[sourceId] = createPeerConnection(sourceId);
+        if (!peerConnections[peerId])
+            peerConnections[peerId] = createPeerConnection(peerId);
 
-        var pc = peerConnections[sourceId];
+        var pc = peerConnections[peerId];
         pc.setRemoteDescription(new RTCSessionDescription(offer));
         pc.createAnswer(function(answer){
             pc.setLocalDescription(answer);
-            console.log('send answer');
-            signalingChannel.sendAnswer(answer, sourceId);
+            console.log('send answer to', peerId);
+            signalingChannel.sendAnswer(answer, peerId);
         }, function (e){
             console.error(e);
         });
@@ -122,17 +123,16 @@ function initUser(messageCallback, userlistCallback) {
 
 window.onload = function() {
 
-    document.getElementById("send").onclick= function(){
+    document.getElementById('send').onclick = function() {
         var message = document.getElementById('message').value;
         var peerId = Number(document.getElementById('userlist').value);
         channels[peerId].send(message);
      };
 
     function messageCallback(message, peerId) {
-        console.log('message:', message, peerId);
+        console.log('message:', message, 'from:', peerId);
         var p = document.createElement('p');
         p.innerHTML = '[' + peerId + ']' + message;
-
         document.getElementById('received').appendChild(p);
     }
 
