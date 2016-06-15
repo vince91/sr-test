@@ -3,9 +3,16 @@ function SignalingChannel(id){
     var _ws;
     var self = this;
 
-    function connectToTracker(url){
+    this.connectToTracker = function(url) {
         _ws = new WebSocket(url);
         _ws.onopen = _onConnectionEstablished;
+        _ws.onclose = _onClose;
+        _ws.onmessage = _onMessage;
+        _ws.onerror = _onError;
+    }
+
+    this.fromPeer = function(dataChannel) {
+        _ws = dataChannel;
         _ws.onclose = _onClose;
         _ws.onmessage = _onMessage;
         _ws.onerror = _onError;
@@ -37,7 +44,7 @@ function SignalingChannel(id){
                 self.onAnswer(objMessage.answer, objMessage.source);
                 break;
             case "init":
-                self.onInit(objMessage.currentID, objMessage.connectedIDs);
+                self.onInit(objMessage.id, objMessage.contactId);
                 break;
             default:
                 throw new Error("invalid message type");
@@ -52,23 +59,17 @@ function SignalingChannel(id){
         _ws.send(JSON.stringify(message));
     }
 
-    function sendICECandidate(ICECandidate, destination){
+    this.sendICECandidate = function(ICECandidate, destination) {
         _sendMessage("ICECandidate", ICECandidate, destination);
     }
 
-    function sendOffer(offer, destination){
+    this.sendOffer = function(offer, destination) {
         _sendMessage("offer", offer, destination);
     }
 
-    function sendAnswer(answer, destination){
-        _sendMessage("answer", answer, destination);
-        
+    this.sendAnswer = function(answer, destination) {
+        _sendMessage("answer", answer, destination);   
     }
-
-    this.connectToTracker = connectToTracker;
-    this.sendICECandidate = sendICECandidate;
-    this.sendOffer = sendOffer;
-    this.sendAnswer = sendAnswer;
 
     //default handler, should be overriden 
     this.onOffer = function(offer, source){
@@ -88,13 +89,17 @@ function SignalingChannel(id){
     //default handler, should be overriden 
     this.onInit = function(currentID, connectedIDs) {
         console.log(currentID, connectedIDs);
-        self.currentID = currentID;
-        self.connectedIDs. connectedIDs;
     }
 }
 
-window.createSignalingChannel = function(url){
+window.createServerSignalingChannel = function(url){
     var signalingChannel = new SignalingChannel();
     signalingChannel.connectToTracker(url);
     return signalingChannel;
 };
+
+window.createPeerSignalingChannel = function(dataChannel) {
+    var signalingChannel = new SignalingChannel();
+    signalingChannel.fromPeer(dataChannel);
+    return signalingChannel;
+}

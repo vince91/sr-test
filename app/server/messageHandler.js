@@ -1,5 +1,5 @@
 var connectedPeers = {};
-var connectedIDs = [];
+var lastPeerId = 0;
 
 function onMessage(ws, message){
     var type = message.type;
@@ -22,23 +22,26 @@ function onMessage(ws, message){
 }
 
 function onInit(ws){
-    var id;
-    if (connectedIDs.length === 0)
-        id = 1;
-    else
-        id = connectedIDs[connectedIDs.length - 1] + 1;
+    var id = ++lastPeerId;
+    var contactId = null;
+
+    var peerCount = Object.keys(connectedPeers).length;
+
+    if (peerCount > 0) {
+        var rd = Math.floor(Math.random() * (peerCount - 1) + 1);
+        contactId = connectedPeers[rd].id
+    }
 
     ws.id = id;
     connectedPeers[id] = ws;
-    connectedIDs.push(id);
 
-    console.log("init from peer:" + id);
-    console.log("connected ids: ", connectedIDs);
+    console.log("init from peer, given id:", id);
+    console.log("contact id:", contactId);
 
     connectedPeers[id].send(JSON.stringify({
         type: 'init',
-        currentID: id,
-        connectedIDs: connectedIDs
+        id: id,
+        contactId: contactId
     }));
 }
 

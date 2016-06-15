@@ -4,13 +4,14 @@ function initUser(messageCallback, userlistCallback) {
     var RTCIceCandidate = window.RTCIceCandidate || window.mozRTCIceCandidate;
     
     var wsUri = 'ws://localhost:8090/';
-    var signalingChannel = createSignalingChannel(wsUri);
     var servers = { iceServers: [{urls: 'stun:stun.1.google.com:19302'}] };
-    var currentID;
-    var connectedIDs;
 
-    var peerConnections = {};
+    var myId;
+    var connectedPeers = {};
+
     var channels = {};
+    var serverSignalingChannel = createServerSignalingChannel(wsUri);
+    var peerSignalingChannel = null;
 
     function createPeerConnection(peerId) {
 
@@ -21,8 +22,9 @@ function initUser(messageCallback, userlistCallback) {
         });
             
         peerConnection.onicecandidate = function(event) {
-            if(event.candidate){ // empty candidate (wirth event.candidate === null) are often generated
-                signalingChannel.sendICECandidate(event.candidate, peerId);
+            if(event.candidate) {
+                console.log('send ICE candidate to', peerId);
+                serverSignalingChannel.sendICECandidate(event.candidate, peerId);
             }
         };
 
@@ -30,10 +32,15 @@ function initUser(messageCallback, userlistCallback) {
             var receiveChannel = event.channel;
             console.log('channel received from', peerId);
             receiveChannel.onmessage = function(event) {
-                messageCallback(event.data, peerId);
-            };
+                console.log('message from', peerId, ':', event.data);
+
+                if (event.data === 'list') {
+                    receiveChannel.send(JSON.stringify({list: [1, 5, 9]}));
+                    peerSignalingChannel = createPeerSignalingChannel(receiveChannel);
+                }
+            }
+
             channels[peerId] = receiveChannel;
-            userlistCallback(peerId);
         };
 
         return peerConnection;
@@ -43,14 +50,6 @@ function initUser(messageCallback, userlistCallback) {
         //:warning the dataChannel must be opened BEFORE creating the offer.
         var commChannel = peerConnection.createDataChannel('communication', {
             reliable: false
-        });
-
-        peerConnection.createOffer(function(offer){
-            peerConnection.setLocalDescription(offer);
-            console.log('send offer to', peerId);
-            signalingChannel.sendOffer(offer, peerId);
-        }, function (e){
-            console.error(e);
         });
         
         commChannel.onclose = function(event) {
@@ -63,62 +62,73 @@ function initUser(messageCallback, userlistCallback) {
 
         commChannel.onopen = function() {
             console.log('dataChannel opened with', peerId);
+            commChannel.send('list');
         };
 
-        commChannel.onmessage = function(message){
-            messageCallback(message.data, peerId);
+        commChannel.onmessage = function(event){
+            console.log('message from', peerId);
+            console.log(event.data);
+            var data = JSON.parse(event.data);
+            if (data.list) {
+                console.log('received peer list from', peerId);
+            }
         };
 
         return commChannel;
     }
 
-    signalingChannel.onInit = function(currentID, connectedIDs) {
+    serverSignalingChannel.onInit = function(id, contactId) {
         console.log('connected to tracker')
-        console.log('my id:', currentID, 'connected peers:', connectedIDs);
+        console.log('my id:', id, 'my contact:', contactId);
 
-        for (var i = 0; i < connectedIDs.length; ++i) {
-            var peerID = connectedIDs[i];
-            if (currentID != peerID) {
-                var peerConnection = createPeerConnection(peerID);
-                channels[peerID] = createDataChannel(peerConnection, peerID);
-                peerConnections[peerID] = peerConnection;
-                userlistCallback(peerID);
-            }
+        var myId = id;
+
+        if (contactId) {
+            var pc = createPeerConnection(contactId);
+            connectedPeers[contactId] = pc;
+            channels[contactId] = createDataChannel(pc, contactId);
+
+            pc.createOffer(function(offer) {
+                pc.setLocalDescription(offer);
+                console.log('send offer to', contactId);
+                serverSignalingChannel.sendOffer(offer, contactId);
+            }, function(e) {
+                console.error(e);
+            });
         }
     }
 
-    signalingChannel.onAnswer = function (answer, peerId) {
+    serverSignalingChannel.onAnswer = function (answer, peerId) {
         console.log('receive answer from', peerId);
-        peerConnections[peerId].setRemoteDescription(new RTCSessionDescription(answer));
+        connectedPeers[peerId].setRemoteDescription(new RTCSessionDescription(answer));
+        console.log(channels[peerId]);
     };
 
-    signalingChannel.onICECandidate = function (ICECandidate, peerId) {
+    serverSignalingChannel.onICECandidate = function (ICECandidate, peerId) {
         console.log('receiving ICE candidate from', peerId);
 
-        if (!peerConnections[peerId])
-            peerConnections[peerId] = createPeerConnection(peerId);
+        if (!connectedPeers[peerId])
+            connectedPeers[peerId] = createPeerConnection(peerId);
 
-        peerConnections[peerId].addIceCandidate(new RTCIceCandidate(ICECandidate));
+        connectedPeers[peerId].addIceCandidate(new RTCIceCandidate(ICECandidate));
     };
 
-    signalingChannel.onOffer = function (offer, peerId) {
+    serverSignalingChannel.onOffer = function (offer, peerId) {
         console.log('receive offer from', peerId);
 
-        if (!peerConnections[peerId])
-            peerConnections[peerId] = createPeerConnection(peerId);
+        if (!connectedPeers[peerId])
+            connectedPeers[peerId] = createPeerConnection(peerId);
 
-        var pc = peerConnections[peerId];
+        var pc = connectedPeers[peerId];
         pc.setRemoteDescription(new RTCSessionDescription(offer));
         pc.createAnswer(function(answer){
             pc.setLocalDescription(answer);
             console.log('send answer to', peerId);
-            signalingChannel.sendAnswer(answer, peerId);
+            serverSignalingChannel.sendAnswer(answer, peerId);
         }, function (e){
             console.error(e);
         });
     };
-
-    window.channels = channels;
 }
 
 window.onload = function() {
