@@ -51,11 +51,12 @@ function SignalingChannel(id){
         }
     }
 
-    function _sendMessage(type, data, destination){
+    function _sendMessage(type, data, destination, source){
         var message = {};
         message.type = type;
         message[type] = data;
         message.destination = destination;
+        message.source = source;
         _ws.send(JSON.stringify(message));
     }
 
@@ -63,8 +64,8 @@ function SignalingChannel(id){
         _sendMessage("ICECandidate", ICECandidate, destination);
     }
 
-    this.sendOffer = function(offer, destination) {
-        _sendMessage("offer", offer, destination);
+    this.sendOffer = function(offer, destination, source) {
+        _sendMessage("offer", offer, destination, source);
     }
 
     this.sendAnswer = function(answer, destination) {
