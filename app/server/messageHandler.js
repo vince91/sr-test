@@ -1,5 +1,5 @@
 var connectedPeers = {};
-var connectedIDs = [];
+var connectedIds = [];
 
 function onMessage(ws, message){
     var type = message.type;
@@ -22,23 +22,18 @@ function onMessage(ws, message){
 }
 
 function onInit(ws){
-    var id;
-    if (connectedIDs.length === 0)
-        id = 1;
-    else
-        id = connectedIDs[connectedIDs.length - 1] + 1;
-
+    var id = connectedIds.length + 1;
     ws.id = id;
     connectedPeers[id] = ws;
-    connectedIDs.push(id);
+    connectedIds.push(id);
 
     console.log("init from peer:" + id);
-    console.log("connected ids: ", connectedIDs);
+    console.log("connected ids: ", connectedIds);
 
     connectedPeers[id].send(JSON.stringify({
         type: 'init',
-        currentID: id,
-        connectedIDs: connectedIDs
+        currentId: id,
+        connectedIds: connectedIds
     }));
 }
 

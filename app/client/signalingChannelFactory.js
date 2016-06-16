@@ -36,7 +36,7 @@ function SignalingChannel(){
                 self.onAnswer(objMessage.answer, objMessage.source);
                 break;
             case "init":
-                self.onInit(objMessage.currentID, objMessage.connectedIDs);
+                self.onInit(objMessage.currentId, objMessage.connectedIds);
                 break;
             default:
                 throw new Error("invalid message type");
