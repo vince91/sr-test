@@ -64,19 +64,11 @@ function User(messageCallback, userlistCallback) {
     function onList(list) {
         console.log("received peer list", list);
         for (var i = 0; i < list.length; ++i) {
-            (function(id){
-                var pc = createPeerConnection(id, self.contactId);
-                connectedPeers[id] = pc;
-                channels[id] = initPeerSignalingChannel(createDataChannel(pc, id));
-
-                pc.createOffer(function(offer) {
-                    console.log('send offer to', id);
-                    pc.setLocalDescription(offer);
-                    channels[self.contactId].sendOffer(offer, id, self.myId);
-                }, function(e) {
-                    console.error(e);
-                });
-            }(list[i]));
+            var id = list[i];
+            var pc = createPeerConnection(id, self.contactId);
+            connectedPeers[id] = pc;
+            channels[id] = initPeerSignalingChannel(createDataChannel(pc, id));
+            createOffer(channels[self.contactId], id, pc);
         }
     }
 
@@ -91,14 +83,7 @@ function User(messageCallback, userlistCallback) {
             var pc = createPeerConnection(contactId);
             connectedPeers[contactId] = pc;
             channels[contactId] = initPeerSignalingChannel(createDataChannel(pc, contactId));
-
-            pc.createOffer(function(offer) {
-                console.log('send offer to', contactId);
-                pc.setLocalDescription(offer);
-                serverSignalingChannel.sendOffer(offer, contactId);
-            }, function(e) {
-                console.error(e);
-            });
+            createOffer(serverSignalingChannel, contactId, pc);
         }
     }
 
@@ -158,6 +143,16 @@ function User(messageCallback, userlistCallback) {
             userlistCallback(peerId);
         };
         return dataChannel;
+    }
+
+    function createOffer(signalingChannel, id, peerConnection) {
+        peerConnection.createOffer(function(offer) {
+            console.log('send offer to', id);
+            peerConnection.setLocalDescription(offer);
+            signalingChannel.sendOffer(offer, id, self.myId);
+        }, function(e) {
+            console.error(e);
+        });
     }
 
     serverSignalingChannel.onInit = onInit;
