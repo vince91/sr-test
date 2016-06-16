@@ -1,4 +1,4 @@
-function SignalingChannel(id){
+function ServerSignalingChannel(id){
 
     var _ws;
     var self = this;
@@ -6,13 +6,6 @@ function SignalingChannel(id){
     this.connectToTracker = function(url) {
         _ws = new WebSocket(url);
         _ws.onopen = _onConnectionEstablished;
-        _ws.onclose = _onClose;
-        _ws.onmessage = _onMessage;
-        _ws.onerror = _onError;
-    }
-
-    this.fromPeer = function(dataChannel) {
-        _ws = dataChannel;
         _ws.onclose = _onClose;
         _ws.onmessage = _onMessage;
         _ws.onerror = _onError;
@@ -94,13 +87,7 @@ function SignalingChannel(id){
 }
 
 window.createServerSignalingChannel = function(url){
-    var signalingChannel = new SignalingChannel();
+    var signalingChannel = new ServerSignalingChannel();
     signalingChannel.connectToTracker(url);
     return signalingChannel;
 };
-
-window.createPeerSignalingChannel = function(dataChannel) {
-    var signalingChannel = new SignalingChannel();
-    signalingChannel.fromPeer(dataChannel);
-    return signalingChannel;
-}
