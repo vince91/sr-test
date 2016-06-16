@@ -67,8 +67,7 @@ function User(messageCallback, userlistCallback) {
             (function(id){
                 var pc = createPeerConnection(id, self.contactId);
                 connectedPeers[id] = pc;
-                var dataChannel = createDataChannel(pc, id);
-                channels[id] = initPeerSignalingChannel(dataChannel);
+                channels[id] = initPeerSignalingChannel(createDataChannel(pc, id));
 
                 pc.createOffer(function(offer) {
                     console.log('send offer to', id);
@@ -91,8 +90,7 @@ function User(messageCallback, userlistCallback) {
         if (contactId) {
             var pc = createPeerConnection(contactId);
             connectedPeers[contactId] = pc;
-            var dataChannel = createDataChannel(pc, contactId);
-            channels[contactId] = initPeerSignalingChannel(dataChannel);
+            channels[contactId] = initPeerSignalingChannel(createDataChannel(pc, contactId));
 
             pc.createOffer(function(offer) {
                 console.log('send offer to', contactId);
@@ -153,18 +151,12 @@ function User(messageCallback, userlistCallback) {
     }
 
     function createDataChannel(peerConnection, peerId) {
-
-        var dataChannel = peerConnection.createDataChannel('communication', {
-            reliable: false
-        });
-
+        var dataChannel = peerConnection.createDataChannel('communication', {reliable: false});
         dataChannel.peerId = peerId;
-
         dataChannel.onopen = function() {
             console.log('dataChannel opened with', peerId);
             userlistCallback(peerId);
         };
-
         return dataChannel;
     }
 

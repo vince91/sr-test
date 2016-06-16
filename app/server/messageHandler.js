@@ -1,5 +1,5 @@
 var connectedPeers = {};
-var lastPeerId = 0;
+var lastPeerId = {id:0};
 
 function onMessage(ws, message){
     var type = message.type;
@@ -14,7 +14,7 @@ function onMessage(ws, message){
             onAnswer(message.answer, message.destination, ws.id);
             break;
         case "init":
-            onInit(ws, message.init);
+            onInit(ws);
             break;
         default:
             throw new Error("invalid message type");
@@ -22,7 +22,7 @@ function onMessage(ws, message){
 }
 
 function onInit(ws){
-    var id = ++lastPeerId;
+    var id = ++lastPeerId.id;
     var contactId = null;
 
     var peerCount = Object.keys(connectedPeers).length;
@@ -76,3 +76,4 @@ module.exports = onMessage;
 
 //exporting for unit tests only
 module.exports._connectedPeers = connectedPeers;
+module.exports._lastPeerId = lastPeerId;
