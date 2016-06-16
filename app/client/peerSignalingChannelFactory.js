@@ -16,32 +16,32 @@ function PeerSignalingChannel(dataChannel){
     }
 
     function _onMessage(evt){
-        var objMessage = JSON.parse(evt.data);
-        switch (objMessage.type) {
+        var data = JSON.parse(event.data);
+        switch (data.type) {
             case "ICECandidate":
-                self.onICECandidate(objMessage.ICECandidate, objMessage.destination, objMessage.source, _dataChannel.peerId);
+                self.onICECandidate(data.ICECandidate, data.source, data.destination, _dataChannel.peerId);
                 break;
             case "offer":
-                self.onOffer(objMessage.offer, objMessage.destination, objMessage.source, _dataChannel.peerId);
+                self.onOffer(data.offer, data.source, data.destination, _dataChannel.peerId);
                 break;
             case "answer":
-                self.onAnswer(objMessage.answer, objMessage.destination, objMessage.source, _dataChannel.peerId);
+                self.onAnswer(data.answer, data.source, data.destination, _dataChannel.peerId);
                 break;
             case "init":
-                self.onInit(objMessage.id, objMessage.contactId);
+                self.onInit(data.id, data.contactId);
                 break;
             case "list":
-                self.onList(objMessage.list);
+                self.onList(data.list);
                 break;
             case "message":
-                self.onMessage(objMessage.message, _dataChannel.peerId);
+                self.onMessage(data.message, _dataChannel.peerId);
                 break;
             default:
                 throw new Error("invalid message type");
         }
     }
 
-    function _sendMessage(type, data, destination, source){
+    function _sendMessage(type, data, source, destination){
         var message = {};
         message.type = type;
         message[type] = data;
@@ -50,16 +50,16 @@ function PeerSignalingChannel(dataChannel){
         _dataChannel.send(JSON.stringify(message));
     }
 
-    this.sendICECandidate = function(ICECandidate, destination, source) {
-        _sendMessage("ICECandidate", ICECandidate, destination, source);
+    this.sendICECandidate = function(ICECandidate, source, destination) {
+        _sendMessage("ICECandidate", ICECandidate, source, destination);
     }
 
-    this.sendOffer = function(offer, destination, source) {
-        _sendMessage("offer", offer, destination, source);
+    this.sendOffer = function(offer, source, destination) {
+        _sendMessage("offer", offer, source, destination);
     }
 
-    this.sendAnswer = function(answer, destination, source) {
-        _sendMessage("answer", answer, destination, source);   
+    this.sendAnswer = function(answer, source, destination) {
+        _sendMessage("answer", answer, source, destination);   
     }
 
     this.sendMessage = function(message) {
@@ -67,12 +67,12 @@ function PeerSignalingChannel(dataChannel){
     }
 
     //default handler, should be overriden 
-    this.onOffer = function(offer, destination, source, respondTo){
+    this.onOffer = function(offer, source, destination, respondTo){
         console.log("offer from peer:", source, ':', offer);
     };
 
     //default handler, should be overriden 
-    this.onAnswer = function(answer, destination, source, respondTo){
+    this.onAnswer = function(answer, source, destination, respondTo){
         console.log("answer from peer:", source, ':', answer);
     };
 
@@ -87,7 +87,7 @@ function PeerSignalingChannel(dataChannel){
     };    
 
     //default handler, should be overriden 
-    this.onMessage = function(message, peerId){
+    this.onMessage = function(message, source){
         console.log("received list");
     }; 
 }

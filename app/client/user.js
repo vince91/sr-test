@@ -9,13 +9,11 @@ function User(messageCallback, userlistCallback) {
     var myId;
     var contactId;
     var connectedPeers = {};
-
-    var channels = {};
     var serverSignalingChannel = createServerSignalingChannel(wsUri);
     var peerSignalingChannels = {};
     var self = this;
 
-    function onOffer(offer, destination, source, respondTo) {
+    function onOffer(offer, source, destination, respondTo) {
         if (destination === self.myId) {
             console.log('received offer from', source);
             if (!connectedPeers[source])
@@ -26,29 +24,29 @@ function User(messageCallback, userlistCallback) {
             pc.createAnswer(function(answer){
                 pc.setLocalDescription(answer);
                 console.log('send answer to', source);
-                peerSignalingChannels[respondTo].sendAnswer(answer, source, self.myId);
+                peerSignalingChannels[respondTo].sendAnswer(answer, self.myId, source);
             }, function (e){
                 console.error(e);
             });
 
         } else {
             console.log('transmit offer from', source, 'to', destination);
-            peerSignalingChannels[destination].sendOffer(offer, destination, source);
+            peerSignalingChannels[destination].sendOffer(offer, source, destination);
         }
     }
 
-    function onAnswer(answer, destination, source, respondTo) {
+    function onAnswer(answer, source, destination, respondTo) {
         if (destination === self.myId) {
             console.log('received answer from', source);
             connectedPeers[source].setRemoteDescription(new RTCSessionDescription(answer));
 
         } else {
             console.log('transmit answer from', source, 'to', destination)
-            peerSignalingChannels[destination].sendAnswer(answer, destination, source);
+            peerSignalingChannels[destination].sendAnswer(answer, source, destination);
         }
     }
 
-    function onICECandidate(ICECandidate, destination, source, respondTo) {
+    function onICECandidate(ICECandidate, source, destination, respondTo) {
         if (destination === self.myId) {
             console.log('received ICE candidate from', source);
             if (!connectedPeers[source])
@@ -57,7 +55,7 @@ function User(messageCallback, userlistCallback) {
             connectedPeers[source].addIceCandidate(new RTCIceCandidate(ICECandidate));
         } else {
             console.log('transmit ICE candidate from', source, 'to', destination)
-            peerSignalingChannels[destination].sendICECandidate(ICECandidate, destination, source);
+            peerSignalingChannels[destination].sendICECandidate(ICECandidate, source, destination);
         }
     }
 
@@ -73,7 +71,7 @@ function User(messageCallback, userlistCallback) {
                 pc.createOffer(function(offer) {
                     pc.setLocalDescription(offer);
                     console.log('send offer to', id);
-                    peerSignalingChannels[self.contactId].sendOffer(offer, id, self.myId);
+                    peerSignalingChannels[self.contactId].sendOffer(offer, self.myId, id);
                 }, function(e) {
                     console.error(e);
                 });
@@ -91,7 +89,7 @@ function User(messageCallback, userlistCallback) {
             if(event.candidate) {
                 console.log('send ICE candidate to', peerId);
                 if (respondTo)
-                    peerSignalingChannels[respondTo].sendICECandidate(event.candidate, peerId, self.myId);
+                    peerSignalingChannels[respondTo].sendICECandidate(event.candidate, self.myId, peerId);
                 else
                     serverSignalingChannel.sendICECandidate(event.candidate, peerId);
             }
@@ -101,9 +99,7 @@ function User(messageCallback, userlistCallback) {
             var receiveChannel = event.channel;
             console.log('channel received from', peerId);
             userlistCallback(peerId);
-            channels[peerId] = receiveChannel;
             receiveChannel.peerId = peerId;
-
             peerSignalingChannels[peerId] = initPeerSignalingChannel(receiveChannel);
 
             if (!respondTo) {
