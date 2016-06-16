@@ -71,13 +71,13 @@ function User(messageCallback, userlistCallback) {
                 channels[id] = initPeerSignalingChannel(dataChannel);
 
                 pc.createOffer(function(offer) {
-                    pc.setLocalDescription(offer);
                     console.log('send offer to', id);
+                    pc.setLocalDescription(offer);
                     channels[self.contactId].sendOffer(offer, self.myId, id);
                 }, function(e) {
                     console.error(e);
                 });
-            }(Number(list[i])));
+            }(list[i]));
         }
     }
 
@@ -108,13 +108,11 @@ function User(messageCallback, userlistCallback) {
                 // send peer list
                 var list = [];
                 for (id in connectedPeers) {
-                    if (id !== peerId && id != peerId)
+                    id = Number(id);
+                    if (id !== peerId)
                         list.push(id)
                 }
-                receiveChannel.send(JSON.stringify({
-                    type: 'list',
-                    list: list
-                }));
+                channels[peerId].sendList(list);
             }
         };
 
@@ -161,8 +159,8 @@ function User(messageCallback, userlistCallback) {
             channels[contactId] = initPeerSignalingChannel(dataChannel);
 
             pc.createOffer(function(offer) {
-                pc.setLocalDescription(offer);
                 console.log('send offer to', contactId);
+                pc.setLocalDescription(offer);
                 serverSignalingChannel.sendOffer(offer, contactId);
             }, function(e) {
                 console.error(e);

@@ -66,6 +66,10 @@ function PeerSignalingChannel(dataChannel){
         _sendMessage("message", message);
     }
 
+    this.sendList = function(list) {
+        _sendMessage("list", list);
+    }
+
     //default handler, should be overriden 
     this.onOffer = function(offer, source, destination, respondTo){
         console.log("offer from peer:", source, ':', offer);
