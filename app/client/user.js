@@ -43,7 +43,7 @@ function initUser(messageCallback, userlistCallback) {
         if (destination === self.myId) {
             console.log('received offer from', source);
             if (!connectedPeers[source])
-            connectedPeers[source] = createPeerConnection2(source, respondTo);
+            connectedPeers[source] = createPeerConnection(source, respondTo);
 
             var pc = connectedPeers[source];
             pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -91,7 +91,7 @@ function initUser(messageCallback, userlistCallback) {
         if (destination === self.myId) {
             console.log('received ICE candidate from', source);
             if (!connectedPeers[source])
-                connectedPeers[source] = createPeerConnection2(source, respondTo);
+                connectedPeers[source] = createPeerConnection(source, respondTo);
 
             connectedPeers[source].addIceCandidate(new RTCIceCandidate(ICECandidate));
         } else {
@@ -105,15 +105,11 @@ function initUser(messageCallback, userlistCallback) {
         }
     }
 
-    function createOffer(pc, id) {
-        
-    }
     function onListReceived(list) {
 
         for (var i = 0; i < list.length; ++i) {
             (function(id){
-                console.log(id);
-                var pc = createPeerConnection2(id, self.contactId);
+                var pc = createPeerConnection(id, self.contactId);
                 connectedPeers[id] = pc;
                 channels[id] = createDataChannel(pc, id);
                 pc.createOffer(function(offer) {
@@ -132,39 +128,7 @@ function initUser(messageCallback, userlistCallback) {
         }
     }
 
-    function createPeerConnection2(peerId, respondTo) {
-
-         var pc = new RTCPeerConnection(servers, {
-            optional: [{DtlsSrtpKeyAgreement: true}]
-        });
-                
-        pc.onicecandidate = function(event) {
-            if(event.candidate) {
-                console.log('send ICE candidate to', peerId, respondTo);
-                 channels[respondTo].send(JSON.stringify({
-                    type: 'ICECandidate',
-                    ICECandidate: event.candidate,
-                    source: self.myId,
-                    destination: peerId
-                }));
-            }
-        };
-
-        pc.ondatachannel = function(event) {
-            var receiveChannel = event.channel;
-            console.log('channel received from', peerId);
-            userlistCallback(peerId);
-
-            receiveChannel.onmessage = function(event) {
-                onMessage(peerId, event.data);
-            }
-            channels[peerId] = receiveChannel;
-        };
-
-        return pc;
-    }
-
-    function createPeerConnection(peerId) {
+    function createPeerConnection(peerId, respondTo) {
 
         var peerConnection = new RTCPeerConnection(servers, {
             optional: [{DtlsSrtpKeyAgreement: true}]
@@ -173,7 +137,15 @@ function initUser(messageCallback, userlistCallback) {
         peerConnection.onicecandidate = function(event) {
             if(event.candidate) {
                 console.log('send ICE candidate to', peerId);
-                serverSignalingChannel.sendICECandidate(event.candidate, peerId);
+                if (respondTo)
+                    channels[respondTo].send(JSON.stringify({
+                        type: 'ICECandidate',
+                        ICECandidate: event.candidate,
+                        source: self.myId,
+                        destination: peerId
+                    }));
+                else
+                    serverSignalingChannel.sendICECandidate(event.candidate, peerId);
             }
         };
 
@@ -181,22 +153,24 @@ function initUser(messageCallback, userlistCallback) {
             var receiveChannel = event.channel;
             console.log('channel received from', peerId);
             userlistCallback(peerId);
+            channels[peerId] = receiveChannel;
 
-            // send peer list
-            var list = [];
-            for (id in connectedPeers) {
-                if (id !== peerId && id != peerId)
-                    list.push(id)
+            if (!respondTo) {
+                // send peer list
+                var list = [];
+                for (id in connectedPeers) {
+                    if (id !== peerId && id != peerId)
+                        list.push(id)
+                }
+                receiveChannel.send(JSON.stringify({
+                    type: 'list',
+                    list: list
+                }));
             }
-            receiveChannel.send(JSON.stringify({
-                type: 'list',
-                list: list
-            }));
 
             receiveChannel.onmessage = function(event) {
                 onMessage(peerId, event.data);
             }
-            channels[peerId] = receiveChannel;
         };
 
         return peerConnection;
