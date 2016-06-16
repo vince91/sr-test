@@ -14,7 +14,7 @@ function User(messageCallback, userlistCallback) {
     var self = this;
 
     function onOffer(offer, source, destination, respondTo) {
-        if (destination === self.myId) {
+        if (destination === self.myId || !destination) {
             console.log('received offer from', source);
             if (!connectedPeers[source])
             connectedPeers[source] = createPeerConnection(source, respondTo);
@@ -182,22 +182,7 @@ function User(messageCallback, userlistCallback) {
         connectedPeers[peerId].addIceCandidate(new RTCIceCandidate(ICECandidate));
     };
 
-    serverSignalingChannel.onOffer = function (offer, peerId) {
-        console.log('receive offer from', peerId);
-
-        if (!connectedPeers[peerId])
-            connectedPeers[peerId] = createPeerConnection(peerId);
-
-        var pc = connectedPeers[peerId];
-        pc.setRemoteDescription(new RTCSessionDescription(offer));
-        pc.createAnswer(function(answer){
-            pc.setLocalDescription(answer);
-            console.log('send answer to', peerId);
-            serverSignalingChannel.sendAnswer(answer, peerId);
-        }, function (e){
-            console.error(e);
-        });
-    };
+    serverSignalingChannel.onOffer = onOffer;
 
     this.sendMessage = function(message, destination) {
         peerSignalingChannels[destination].sendMessage(message);
