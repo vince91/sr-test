@@ -1,30 +1,30 @@
-function SignalingChannel(id){
+function SignalingChannel(){
 
     var _ws;
     var self = this;
 
-    function connectToTracker(url){
+    this.connectToTracker = function(url) {
         _ws = new WebSocket(url);
         _ws.onopen = _onConnectionEstablished;
         _ws.onclose = _onClose;
         _ws.onmessage = _onMessage;
         _ws.onerror = _onError;
-    }
+    };
 
-    function _onConnectionEstablished(){
+    function _onConnectionEstablished() {
         _sendMessage('init');
     }
 
-    function _onClose(){
+    function _onClose() {
         console.error("connection closed");
     }
 
-    function _onError(err){
+    function _onError(err) {
         console.error("error:", err);
     }
 
 
-    function _onMessage(evt){
+    function _onMessage(evt) {
         var objMessage = JSON.parse(evt.data);
         switch (objMessage.type) {
             case "ICECandidate":
@@ -44,7 +44,7 @@ function SignalingChannel(id){
         }
     }
 
-    function _sendMessage(type, data, destination){
+    function _sendMessage(type, data, destination) {
         var message = {};
         message.type = type;
         message[type] = data;
@@ -52,23 +52,18 @@ function SignalingChannel(id){
         _ws.send(JSON.stringify(message));
     }
 
-    function sendICECandidate(ICECandidate, destination){
+    this.sendICECandidate = function(ICECandidate, destination) {
         _sendMessage("ICECandidate", ICECandidate, destination);
-    }
+    };
 
-    function sendOffer(offer, destination){
+    this.sendOffer = function(offer, destination) {
         _sendMessage("offer", offer, destination);
-    }
+    };
 
-    function sendAnswer(answer, destination){
+    this.sendAnswer = function(answer, destination) {
         _sendMessage("answer", answer, destination);
         
-    }
-
-    this.connectToTracker = connectToTracker;
-    this.sendICECandidate = sendICECandidate;
-    this.sendOffer = sendOffer;
-    this.sendAnswer = sendAnswer;
+    };
 
     //default handler, should be overriden 
     this.onOffer = function(offer, source){
@@ -88,9 +83,7 @@ function SignalingChannel(id){
     //default handler, should be overriden 
     this.onInit = function(currentID, connectedIDs) {
         console.log(currentID, connectedIDs);
-        self.currentID = currentID;
-        self.connectedIDs. connectedIDs;
-    }
+    };
 }
 
 window.createSignalingChannel = function(url){

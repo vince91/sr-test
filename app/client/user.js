@@ -1,4 +1,4 @@
-function initUser(messageCallback, userlistCallback) {
+function User(messageCallback, userlistCallback) {
     var RTCSessionDescription = window.RTCSessionDescription || window.mozRTCSessionDescription;
     var RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
     var RTCIceCandidate = window.RTCIceCandidate || window.mozRTCIceCandidate;
@@ -118,15 +118,19 @@ function initUser(messageCallback, userlistCallback) {
         });
     };
 
-    window.channels = channels;
+    this.sendMessage = function(message, destination) {
+        channels[destination].send(message);
+    }
 }
 
 window.onload = function() {
 
+    var user = new User(messageCallback, userlistCallback);
+
     document.getElementById('send').onclick = function() {
         var message = document.getElementById('message').value;
         var peerId = Number(document.getElementById('userlist').value);
-        channels[peerId].send(message);
+        user.sendMessage(message, peerId);
      };
 
     function messageCallback(message, peerId) {
@@ -142,6 +146,4 @@ window.onload = function() {
         opt.innerHTML = peerID;
         document.getElementById('userlist').appendChild(opt);
     }
-
-    initUser(messageCallback, userlistCallback);
 }
