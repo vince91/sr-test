@@ -8,16 +8,35 @@ var WsMock = function(){
 
 describe('signalingServer', function() {
     describe('Initialization', function() {
-        it('onInit', function() {
+
+        it('onInit1', function() {
             var ws = new WsMock();
-            var message = {
-                type:"init",
-                init:1
-            };
-            messageHandler(ws, message);
+            var spy = sinon.spy(ws, "send");
+
+            messageHandler(ws, {type:"init"});
+            spy.calledOnce.should.be.true;
+
             ws.id.should.be.equal(1);
             messageHandler._connectedPeers[1].should.be.equal(ws);
+
+            var expectedResponse = '{"type":"init","id":1,"contactId":null}';
+            spy.firstCall.args[0].should.eql(expectedResponse);
         });
+
+        it('onInit2', function() {
+            var ws = new WsMock();
+            var spy = sinon.spy(ws, "send");
+
+            messageHandler(ws, {type:"init"});
+            spy.calledOnce.should.be.true;
+
+            ws.id.should.be.equal(2);
+            messageHandler._connectedPeers[2].should.be.equal(ws);
+
+            var expectedResponse = '{"type":"init","id":2,"contactId":1}';
+            spy.firstCall.args[0].should.eql(expectedResponse);
+        });
+
     });
     describe('Messages', function() {
         var spy, ws1, ws2;

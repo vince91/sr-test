@@ -1,5 +1,4 @@
 var connectedPeers = {};
-var lastPeerId = {id:0};
 
 function onMessage(ws, message){
     var type = message.type;
@@ -22,10 +21,9 @@ function onMessage(ws, message){
 }
 
 function onInit(ws){
-    var id = ++lastPeerId.id;
-    var contactId = null;
-
     var peerCount = Object.keys(connectedPeers).length;
+    var id = peerCount + 1;
+    var contactId = null;
 
     if (peerCount > 0) {
         var rd = Math.floor(Math.random() * (peerCount - 1) + 1);
@@ -76,4 +74,3 @@ module.exports = onMessage;
 
 //exporting for unit tests only
 module.exports._connectedPeers = connectedPeers;
-module.exports._lastPeerId = lastPeerId;
