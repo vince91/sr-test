@@ -23,7 +23,6 @@ function SignalingChannel(){
         console.error("error:", err);
     }
 
-
     function _onMessage(evt) {
         var objMessage = JSON.parse(evt.data);
         switch (objMessage.type) {

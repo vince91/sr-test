@@ -6,8 +6,6 @@ function User(messageCallback, userlistCallback) {
     var wsUri = 'ws://localhost:8090/';
     var signalingChannel = createSignalingChannel(wsUri);
     var servers = { iceServers: [{urls: 'stun:stun.1.google.com:19302'}] };
-    var currentID;
-    var connectedIDs;
 
     var peerConnections = {};
     var channels = {};
@@ -39,12 +37,7 @@ function User(messageCallback, userlistCallback) {
         return peerConnection;
     }
 
-    function createDataChannel(peerConnection, peerId) {
-        //:warning the dataChannel must be opened BEFORE creating the offer.
-        var commChannel = peerConnection.createDataChannel('communication', {
-            reliable: false
-        });
-
+    function createOffer(peerConnection, peerId) {
         peerConnection.createOffer(function(offer){
             peerConnection.setLocalDescription(offer);
             console.log('send offer to', peerId);
@@ -52,7 +45,14 @@ function User(messageCallback, userlistCallback) {
         }, function (e){
             console.error(e);
         });
-        
+    }
+
+    function createDataChannel(peerConnection, peerId) {
+        //:warning the dataChannel must be opened BEFORE creating the offer.
+        var commChannel = peerConnection.createDataChannel('communication', {
+            reliable: false
+        });
+
         commChannel.onclose = function(event) {
             console.log('dataChannel closed with', peerId);
         };
@@ -72,47 +72,48 @@ function User(messageCallback, userlistCallback) {
         return commChannel;
     }
 
-    signalingChannel.onInit = function(currentID, connectedIDs) {
+    signalingChannel.onInit = function(currentId, connectedIds) {
         console.log('connected to tracker')
-        console.log('my id:', currentID, 'connected peers:', connectedIDs);
+        console.log('my id:', currentId, 'connected peers:', connectedIds);
 
-        for (var i = 0; i < connectedIDs.length; ++i) {
-            var peerID = connectedIDs[i];
-            if (currentID != peerID) {
-                var peerConnection = createPeerConnection(peerID);
-                channels[peerID] = createDataChannel(peerConnection, peerID);
-                peerConnections[peerID] = peerConnection;
-                userlistCallback(peerID);
+        for (var i = 0; i < connectedIds.length; ++i) {
+            var peerId = connectedIds[i];
+            if (currentId != peerId) {
+                var peerConnection = createPeerConnection(peerId);
+                channels[peerId] = createDataChannel(peerConnection, peerId);
+                peerConnections[peerId] = peerConnection;
+                createOffer(peerConnection, peerId);
+                userlistCallback(peerId);
             }
         }
     }
 
-    signalingChannel.onAnswer = function (answer, peerId) {
-        console.log('receive answer from', peerId);
-        peerConnections[peerId].setRemoteDescription(new RTCSessionDescription(answer));
+    signalingChannel.onAnswer = function (answer, source) {
+        console.log('receive answer from', source);
+        peerConnections[source].setRemoteDescription(new RTCSessionDescription(answer));
     };
 
-    signalingChannel.onICECandidate = function (ICECandidate, peerId) {
-        console.log('receiving ICE candidate from', peerId);
+    signalingChannel.onICECandidate = function (ICECandidate, source) {
+        console.log('receiving ICE candidate from', source);
 
-        if (!peerConnections[peerId])
-            peerConnections[peerId] = createPeerConnection(peerId);
+        if (!peerConnections[source])
+            peerConnections[source] = createPeerConnection(source);
 
-        peerConnections[peerId].addIceCandidate(new RTCIceCandidate(ICECandidate));
+        peerConnections[source].addIceCandidate(new RTCIceCandidate(ICECandidate));
     };
 
-    signalingChannel.onOffer = function (offer, peerId) {
-        console.log('receive offer from', peerId);
+    signalingChannel.onOffer = function (offer, source) {
+        console.log('receive offer from', source);
 
-        if (!peerConnections[peerId])
-            peerConnections[peerId] = createPeerConnection(peerId);
+        if (!peerConnections[source])
+            peerConnections[source] = createPeerConnection(source);
 
-        var pc = peerConnections[peerId];
+        var pc = peerConnections[source];
         pc.setRemoteDescription(new RTCSessionDescription(offer));
         pc.createAnswer(function(answer){
             pc.setLocalDescription(answer);
-            console.log('send answer to', peerId);
-            signalingChannel.sendAnswer(answer, peerId);
+            console.log('send answer to', source);
+            signalingChannel.sendAnswer(answer, source);
         }, function (e){
             console.error(e);
         });
@@ -140,10 +141,10 @@ window.onload = function() {
         document.getElementById('received').appendChild(p);
     }
 
-    function userlistCallback(peerID) {
+    function userlistCallback(peerId) {
         var opt = document.createElement('option');
-        opt.value = peerID;
-        opt.innerHTML = peerID;
+        opt.value = peerId;
+        opt.innerHTML = peerId;
         document.getElementById('userlist').appendChild(opt);
     }
 }
