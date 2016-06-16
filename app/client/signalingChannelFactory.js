@@ -23,20 +23,20 @@ function SignalingChannel(){
         console.error("error:", err);
     }
 
-    function _onMessage(evt) {
-        var objMessage = JSON.parse(evt.data);
-        switch (objMessage.type) {
+    function _onMessage(event) {
+        var data = JSON.parse(event.data);
+        switch (data.type) {
             case "ICECandidate":
-                self.onICECandidate(objMessage.ICECandidate, objMessage.source);
+                self.onICECandidate(data.ICECandidate, data.source);
                 break;
             case "offer":
-                self.onOffer(objMessage.offer, objMessage.source);
+                self.onOffer(data.offer, data.source);
                 break;
             case "answer":
-                self.onAnswer(objMessage.answer, objMessage.source);
+                self.onAnswer(data.answer, data.source);
                 break;
             case "init":
-                self.onInit(objMessage.currentId, objMessage.connectedIds);
+                self.onInit(data.currentId, data.connectedIds);
                 break;
             default:
                 throw new Error("invalid message type");
