@@ -1,43 +1,40 @@
-function PeerServerSignalingChannel(id){
+function PeerSignalingChannel(dataChannel){
 
-    var _ws;
+    var _dataChannel = dataChannel;
     var self = this;
 
-    this.connectToTracker = function(url) {
-        _ws = new WebSocket(url);
-        _ws.onopen = _onConnectionEstablished;
-        _ws.onclose = _onClose;
-        _ws.onmessage = _onMessage;
-        _ws.onerror = _onError;
-    }
-
-    function _onConnectionEstablished(){
-        _sendMessage('init');
-    }
+    dataChannel.onclose = _onClose;
+    dataChannel.onerror = _onError;
+    dataChannel.onmessage = _onMessage;
 
     function _onClose(){
-        console.error("connection closed");
+        console.log('dataChannel closed with', _dataChannel.peerId);
     }
 
     function _onError(err){
-        console.error("error:", err);
+        console.log('dataChannel error with', _dataChannel.peerId);
     }
-
 
     function _onMessage(evt){
         var objMessage = JSON.parse(evt.data);
         switch (objMessage.type) {
             case "ICECandidate":
-                self.onICECandidate(objMessage.ICECandidate, objMessage.source);
+                self.onICECandidate(objMessage.ICECandidate, objMessage.destination, objMessage.source, _dataChannel.peerId);
                 break;
             case "offer":
-                self.onOffer(objMessage.offer, objMessage.source);
+                self.onOffer(objMessage.offer, objMessage.destination, objMessage.source, _dataChannel.peerId);
                 break;
             case "answer":
-                self.onAnswer(objMessage.answer, objMessage.source);
+                self.onAnswer(objMessage.answer, objMessage.destination, objMessage.source, _dataChannel.peerId);
                 break;
             case "init":
                 self.onInit(objMessage.id, objMessage.contactId);
+                break;
+            case "list":
+                self.onList(objMessage.list);
+                break;
+            case "message":
+                self.onMessage(objMessage.message, _dataChannel.peerId);
                 break;
             default:
                 throw new Error("invalid message type");
@@ -50,28 +47,32 @@ function PeerServerSignalingChannel(id){
         message[type] = data;
         message.destination = destination;
         message.source = source;
-        _ws.send(JSON.stringify(message));
+        _dataChannel.send(JSON.stringify(message));
     }
 
-    this.sendICECandidate = function(ICECandidate, destination) {
-        _sendMessage("ICECandidate", ICECandidate, destination);
+    this.sendICECandidate = function(ICECandidate, destination, source) {
+        _sendMessage("ICECandidate", ICECandidate, destination, source);
     }
 
     this.sendOffer = function(offer, destination, source) {
         _sendMessage("offer", offer, destination, source);
     }
 
-    this.sendAnswer = function(answer, destination) {
-        _sendMessage("answer", answer, destination);   
+    this.sendAnswer = function(answer, destination, source) {
+        _sendMessage("answer", answer, destination, source);   
+    }
+
+    this.sendMessage = function(message) {
+        _sendMessage("message", message);
     }
 
     //default handler, should be overriden 
-    this.onOffer = function(offer, source){
+    this.onOffer = function(offer, destination, source, respondTo){
         console.log("offer from peer:", source, ':', offer);
     };
 
     //default handler, should be overriden 
-    this.onAnswer = function(answer, source){
+    this.onAnswer = function(answer, destination, source, respondTo){
         console.log("answer from peer:", source, ':', answer);
     };
 
@@ -81,13 +82,17 @@ function PeerServerSignalingChannel(id){
     };
 
     //default handler, should be overriden 
-    this.onInit = function(currentID, connectedIDs) {
-        console.log(currentID, connectedIDs);
-    }
+    this.onList = function(list){
+        console.log("received list", list);
+    };    
+
+    //default handler, should be overriden 
+    this.onMessage = function(message, peerId){
+        console.log("received list");
+    }; 
 }
 
-window.createPeerSignalingChannel = function(url){
-    var signalingChannel = new PeerSignalingChannel();
-    signalingChannel.connectToTracker(url);
+window.createPeerSignalingChannel = function(channels){
+    var signalingChannel = new PeerSignalingChannel(channels);
     return signalingChannel;
 };

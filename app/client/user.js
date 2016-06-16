@@ -1,4 +1,4 @@
-function initUser(messageCallback, userlistCallback) {
+function User(messageCallback, userlistCallback) {
     var RTCSessionDescription = window.RTCSessionDescription || window.mozRTCSessionDescription;
     var RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
     var RTCIceCandidate = window.RTCIceCandidate || window.mozRTCIceCandidate;
@@ -12,32 +12,8 @@ function initUser(messageCallback, userlistCallback) {
 
     var channels = {};
     var serverSignalingChannel = createServerSignalingChannel(wsUri);
-    var peerSignalingChannel = {};
+    var peerSignalingChannels = {};
     var self = this;
-
-    function onMessage(sourceId, message) {
-        message = JSON.parse(message);
-        //console.log('message from', sourceId, ':', message);
-        switch (message.type) {
-            case "list":
-                onListReceived(message.list);
-                break;
-            case "offer":
-                onOffer(message.offer, message.destination, message.source, sourceId);
-                break;
-            case "ICECandidate":
-                onICECandidate(message.ICECandidate, message.destination, message.source, sourceId);
-                break;
-            case "answer":
-                onAnswer(message.answer, message.destination, message.source, sourceId);
-                break;
-            case "message":
-                messageCallback(message.message, sourceId);
-                break;
-            default:
-                throw new Error("invalid message type");
-        }
-    }
 
     function onOffer(offer, destination, source, respondTo) {
         if (destination === self.myId) {
@@ -50,24 +26,14 @@ function initUser(messageCallback, userlistCallback) {
             pc.createAnswer(function(answer){
                 pc.setLocalDescription(answer);
                 console.log('send answer to', source);
-                channels[respondTo].send(JSON.stringify({
-                    type: 'answer',
-                    answer: answer,
-                    destination: source,
-                    source: self.myId
-                }));
+                peerSignalingChannels[respondTo].sendAnswer(answer, source, self.myId);
             }, function (e){
                 console.error(e);
             });
 
         } else {
-            console.log('transmit offer from', source, 'to', destination)
-            channels[destination].send(JSON.stringify({
-                type: 'offer',
-                offer: offer,
-                source: source,
-                destination: destination
-            }));
+            console.log('transmit offer from', source, 'to', destination);
+            peerSignalingChannels[destination].sendOffer(offer, destination, source);
         }
     }
 
@@ -78,12 +44,7 @@ function initUser(messageCallback, userlistCallback) {
 
         } else {
             console.log('transmit answer from', source, 'to', destination)
-            channels[destination].send(JSON.stringify({
-                type: 'answer',
-                answer: answer,
-                source: source,
-                destination: destination
-            }));
+            peerSignalingChannels[destination].sendAnswer(answer, destination, source);
         }
     }
 
@@ -96,31 +57,23 @@ function initUser(messageCallback, userlistCallback) {
             connectedPeers[source].addIceCandidate(new RTCIceCandidate(ICECandidate));
         } else {
             console.log('transmit ICE candidate from', source, 'to', destination)
-            channels[destination].send(JSON.stringify({
-                type: 'ICECandidate',
-                ICECandidate: ICECandidate,
-                source: source,
-                destination: destination
-            }));
+            peerSignalingChannels[destination].sendICECandidate(ICECandidate, destination, source);
         }
     }
 
-    function onListReceived(list) {
-
+    function onList(list) {
+        console.log("received peer list", list);
         for (var i = 0; i < list.length; ++i) {
             (function(id){
                 var pc = createPeerConnection(id, self.contactId);
                 connectedPeers[id] = pc;
-                channels[id] = createDataChannel(pc, id);
+                var dataChannel = createDataChannel(pc, id);
+                peerSignalingChannels[id] = initPeerSignalingChannel(dataChannel);
+
                 pc.createOffer(function(offer) {
                     pc.setLocalDescription(offer);
                     console.log('send offer to', id);
-                    channels[self.contactId].send(JSON.stringify({
-                        type: 'offer',
-                        offer: offer,
-                        source: self.myId,
-                        destination: id
-                    }));
+                    peerSignalingChannels[self.contactId].sendOffer(offer, id, self.myId);
                 }, function(e) {
                     console.error(e);
                 });
@@ -138,12 +91,7 @@ function initUser(messageCallback, userlistCallback) {
             if(event.candidate) {
                 console.log('send ICE candidate to', peerId);
                 if (respondTo)
-                    channels[respondTo].send(JSON.stringify({
-                        type: 'ICECandidate',
-                        ICECandidate: event.candidate,
-                        source: self.myId,
-                        destination: peerId
-                    }));
+                    peerSignalingChannels[respondTo].sendICECandidate(event.candidate, peerId, self.myId);
                 else
                     serverSignalingChannel.sendICECandidate(event.candidate, peerId);
             }
@@ -154,6 +102,9 @@ function initUser(messageCallback, userlistCallback) {
             console.log('channel received from', peerId);
             userlistCallback(peerId);
             channels[peerId] = receiveChannel;
+            receiveChannel.peerId = peerId;
+
+            peerSignalingChannels[peerId] = initPeerSignalingChannel(receiveChannel);
 
             if (!respondTo) {
                 // send peer list
@@ -167,13 +118,19 @@ function initUser(messageCallback, userlistCallback) {
                     list: list
                 }));
             }
-
-            receiveChannel.onmessage = function(event) {
-                onMessage(peerId, event.data);
-            }
         };
 
         return peerConnection;
+    }
+
+    function initPeerSignalingChannel (dataChannel) {
+        var peerSignalingChannel = createPeerSignalingChannel(dataChannel);
+        peerSignalingChannel.onList = onList;
+        peerSignalingChannel.onOffer = onOffer;
+        peerSignalingChannel.onAnswer = onAnswer;
+        peerSignalingChannel.onICECandidate = onICECandidate;
+        peerSignalingChannel.onMessage = messageCallback;
+        return peerSignalingChannel;
     }
 
     function createDataChannel(peerConnection, peerId) {
@@ -181,22 +138,12 @@ function initUser(messageCallback, userlistCallback) {
         var dataChannel = peerConnection.createDataChannel('communication', {
             reliable: false
         });
-        
-        dataChannel.onclose = function(event) {
-            console.log('dataChannel closed with', peerId);
-        };
 
-        dataChannel.onerror = function(event) {
-            console.error('dataChannel error with', peerId);
-        };
+        dataChannel.peerId = peerId;
 
         dataChannel.onopen = function() {
             console.log('dataChannel opened with', peerId);
             userlistCallback(peerId);
-        };
-
-        dataChannel.onmessage = function(event){
-            onMessage(peerId, event.data);
         };
 
         return dataChannel;
@@ -212,7 +159,8 @@ function initUser(messageCallback, userlistCallback) {
         if (contactId) {
             var pc = createPeerConnection(contactId);
             connectedPeers[contactId] = pc;
-            channels[contactId] = createDataChannel(pc, contactId);
+            var dataChannel = createDataChannel(pc, contactId);
+            peerSignalingChannels[contactId] = initPeerSignalingChannel(dataChannel);
 
             pc.createOffer(function(offer) {
                 pc.setLocalDescription(offer);
@@ -255,22 +203,22 @@ function initUser(messageCallback, userlistCallback) {
         });
     };
 
-    window.channels = channels;
+    this.sendMessage = function(message, destination) {
+        peerSignalingChannels[destination].sendMessage(message);
+    }
 }
 
 window.onload = function() {
 
+    var user = new User(messageCallback, userlistCallback);
+
     document.getElementById('send').onclick = function() {
         var message = document.getElementById('message').value;
         var peerId = Number(document.getElementById('userlist').value);
-        channels[peerId].send(JSON.stringify({
-            type: 'message',
-            message: message
-        }));
+        user.sendMessage(message, peerId);
      };
 
     function messageCallback(message, peerId) {
-        console.log('message:', message, 'from:', peerId);
         var p = document.createElement('p');
         p.innerHTML = '[' + peerId + ']' + message;
         document.getElementById('received').appendChild(p);
@@ -282,6 +230,4 @@ window.onload = function() {
         opt.innerHTML = peerID;
         document.getElementById('userlist').appendChild(opt);
     }
-
-    initUser(messageCallback, userlistCallback);
 }
