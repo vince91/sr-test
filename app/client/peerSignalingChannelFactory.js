@@ -25,7 +25,7 @@ function PeerSignalingChannel(dataChannel){
                 self.onOffer(data.offer, data.source, data.destination, _dataChannel.peerId);
                 break;
             case "answer":
-                self.onAnswer(data.answer, data.source, data.destination, _dataChannel.peerId);
+                self.onAnswer(data.answer, data.source, data.destination);
                 break;
             case "init":
                 self.onInit(data.id, data.contactId);
@@ -72,7 +72,7 @@ function PeerSignalingChannel(dataChannel){
     };
 
     //default handler, should be overriden 
-    this.onAnswer = function(answer, source, destination, respondTo){
+    this.onAnswer = function(answer, source, destination){
         console.log("answer from peer:", source, ':', answer);
     };
 

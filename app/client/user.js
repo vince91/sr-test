@@ -10,7 +10,7 @@ function User(messageCallback, userlistCallback) {
     var contactId;
     var connectedPeers = {};
     var serverSignalingChannel = createServerSignalingChannel(wsUri);
-    var peerSignalingChannels = {};
+    var channels = {};
     var self = this;
 
     function onOffer(offer, source, destination, respondTo) {
@@ -26,7 +26,7 @@ function User(messageCallback, userlistCallback) {
                 console.log('send answer to', source);
                 pc.setLocalDescription(answer);
                 if (destination)
-                    peerSignalingChannels[respondTo].sendAnswer(answer, self.myId, source);
+                    channels[respondTo].sendAnswer(answer, self.myId, source);
                 else
                     serverSignalingChannel.sendAnswer(answer, source);
             }, function (e){
@@ -34,17 +34,17 @@ function User(messageCallback, userlistCallback) {
             });
         } else {
             console.log('transmit offer from', source, 'to', destination);
-            peerSignalingChannels[destination].sendOffer(offer, source, destination);
+            channels[destination].sendOffer(offer, source, destination);
         }
     }
 
-    function onAnswer(answer, source, destination, respondTo) {
+    function onAnswer(answer, source, destination) {
         if (destination === self.myId || !destination) {
             console.log('received answer from', source);
             connectedPeers[source].setRemoteDescription(new RTCSessionDescription(answer));
         } else {
             console.log('transmit answer from', source, 'to', destination)
-            peerSignalingChannels[destination].sendAnswer(answer, source, destination);
+            channels[destination].sendAnswer(answer, source, destination);
         }
     }
 
@@ -57,7 +57,7 @@ function User(messageCallback, userlistCallback) {
             connectedPeers[source].addIceCandidate(new RTCIceCandidate(ICECandidate));
         } else {
             console.log('transmit ICE candidate from', source, 'to', destination)
-            peerSignalingChannels[destination].sendICECandidate(ICECandidate, source, destination);
+            channels[destination].sendICECandidate(ICECandidate, source, destination);
         }
     }
 
@@ -68,12 +68,12 @@ function User(messageCallback, userlistCallback) {
                 var pc = createPeerConnection(id, self.contactId);
                 connectedPeers[id] = pc;
                 var dataChannel = createDataChannel(pc, id);
-                peerSignalingChannels[id] = initPeerSignalingChannel(dataChannel);
+                channels[id] = initPeerSignalingChannel(dataChannel);
 
                 pc.createOffer(function(offer) {
                     pc.setLocalDescription(offer);
                     console.log('send offer to', id);
-                    peerSignalingChannels[self.contactId].sendOffer(offer, self.myId, id);
+                    channels[self.contactId].sendOffer(offer, self.myId, id);
                 }, function(e) {
                     console.error(e);
                 });
@@ -91,7 +91,7 @@ function User(messageCallback, userlistCallback) {
             if(event.candidate) {
                 console.log('send ICE candidate to', peerId);
                 if (respondTo)
-                    peerSignalingChannels[respondTo].sendICECandidate(event.candidate, self.myId, peerId);
+                    channels[respondTo].sendICECandidate(event.candidate, self.myId, peerId);
                 else
                     serverSignalingChannel.sendICECandidate(event.candidate, peerId);
             }
@@ -102,7 +102,7 @@ function User(messageCallback, userlistCallback) {
             console.log('channel received from', peerId);
             userlistCallback(peerId);
             receiveChannel.peerId = peerId;
-            peerSignalingChannels[peerId] = initPeerSignalingChannel(receiveChannel);
+            channels[peerId] = initPeerSignalingChannel(receiveChannel);
 
             if (!respondTo) {
                 // send peer list
@@ -158,7 +158,7 @@ function User(messageCallback, userlistCallback) {
             var pc = createPeerConnection(contactId);
             connectedPeers[contactId] = pc;
             var dataChannel = createDataChannel(pc, contactId);
-            peerSignalingChannels[contactId] = initPeerSignalingChannel(dataChannel);
+            channels[contactId] = initPeerSignalingChannel(dataChannel);
 
             pc.createOffer(function(offer) {
                 pc.setLocalDescription(offer);
@@ -175,7 +175,7 @@ function User(messageCallback, userlistCallback) {
     serverSignalingChannel.onAnswer = onAnswer;
 
     this.sendMessage = function(message, destination) {
-        peerSignalingChannels[destination].sendMessage(message);
+        channels[destination].sendMessage(message);
     }
 }
 
