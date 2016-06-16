@@ -26,7 +26,7 @@ function User(messageCallback, userlistCallback) {
                 console.log('send answer to', source);
                 pc.setLocalDescription(answer);
                 if (destination)
-                    channels[respondTo].sendAnswer(answer, self.myId, source);
+                    channels[respondTo].sendAnswer(answer, source, self.myId);
                 else
                     serverSignalingChannel.sendAnswer(answer, source);
             }, function (e){
@@ -34,7 +34,7 @@ function User(messageCallback, userlistCallback) {
             });
         } else {
             console.log('transmit offer from', source, 'to', destination);
-            channels[destination].sendOffer(offer, source, destination);
+            channels[destination].sendOffer(offer, destination, source);
         }
     }
 
@@ -44,7 +44,7 @@ function User(messageCallback, userlistCallback) {
             connectedPeers[source].setRemoteDescription(new RTCSessionDescription(answer));
         } else {
             console.log('transmit answer from', source, 'to', destination)
-            channels[destination].sendAnswer(answer, source, destination);
+            channels[destination].sendAnswer(answer, destination, source);
         }
     }
 
@@ -57,7 +57,7 @@ function User(messageCallback, userlistCallback) {
             connectedPeers[source].addIceCandidate(new RTCIceCandidate(ICECandidate));
         } else {
             console.log('transmit ICE candidate from', source, 'to', destination)
-            channels[destination].sendICECandidate(ICECandidate, source, destination);
+            channels[destination].sendICECandidate(ICECandidate, destination, source);
         }
     }
 
@@ -73,11 +73,34 @@ function User(messageCallback, userlistCallback) {
                 pc.createOffer(function(offer) {
                     console.log('send offer to', id);
                     pc.setLocalDescription(offer);
-                    channels[self.contactId].sendOffer(offer, self.myId, id);
+                    channels[self.contactId].sendOffer(offer, id, self.myId);
                 }, function(e) {
                     console.error(e);
                 });
             }(list[i]));
+        }
+    }
+
+    function onInit(id, contactId) {
+        console.log('connected to tracker')
+        console.log('my id:', id, 'my contact:', contactId);
+
+        self.myId = id;
+        self.contactId = contactId
+
+        if (contactId) {
+            var pc = createPeerConnection(contactId);
+            connectedPeers[contactId] = pc;
+            var dataChannel = createDataChannel(pc, contactId);
+            channels[contactId] = initPeerSignalingChannel(dataChannel);
+
+            pc.createOffer(function(offer) {
+                console.log('send offer to', contactId);
+                pc.setLocalDescription(offer);
+                serverSignalingChannel.sendOffer(offer, contactId);
+            }, function(e) {
+                console.error(e);
+            });
         }
     }
 
@@ -91,7 +114,7 @@ function User(messageCallback, userlistCallback) {
             if(event.candidate) {
                 console.log('send ICE candidate to', peerId);
                 if (respondTo)
-                    channels[respondTo].sendICECandidate(event.candidate, self.myId, peerId);
+                    channels[respondTo].sendICECandidate(event.candidate, peerId, self.myId);
                 else
                     serverSignalingChannel.sendICECandidate(event.candidate, peerId);
             }
@@ -145,29 +168,7 @@ function User(messageCallback, userlistCallback) {
         return dataChannel;
     }
 
-    serverSignalingChannel.onInit = function(id, contactId) {
-        console.log('connected to tracker')
-        console.log('my id:', id, 'my contact:', contactId);
-
-        self.myId = id;
-        self.contactId = contactId
-
-        if (contactId) {
-            var pc = createPeerConnection(contactId);
-            connectedPeers[contactId] = pc;
-            var dataChannel = createDataChannel(pc, contactId);
-            channels[contactId] = initPeerSignalingChannel(dataChannel);
-
-            pc.createOffer(function(offer) {
-                console.log('send offer to', contactId);
-                pc.setLocalDescription(offer);
-                serverSignalingChannel.sendOffer(offer, contactId);
-            }, function(e) {
-                console.error(e);
-            });
-        }
-    }
-
+    serverSignalingChannel.onInit = onInit;
     serverSignalingChannel.onICECandidate = onICECandidate;
     serverSignalingChannel.onOffer = onOffer;
     serverSignalingChannel.onAnswer = onAnswer;
